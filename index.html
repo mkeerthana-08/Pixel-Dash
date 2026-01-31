@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PixelDash</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
   <style>
     body {
       margin: 0;
@@ -45,229 +48,18 @@
       border-radius: 6px;
       cursor: pointer;
       box-shadow: 2px 2px #222;
-      transition: background 0.2s;
-    }
-    #restartBtn:hover {
-      background: #ffd580;
     }
   </style>
-  <!-- Pixel font for retro look -->
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
+
   <h1>🦊 PixelDash</h1>
   <p>Press <b>SPACE</b> or <b>TAP</b> to jump</p>
+
   <canvas id="game" width="800" height="300"></canvas>
   <button id="restartBtn">Restart</button>
-  <script>
-    // --- Game Constants ---
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width;
-    const H = canvas.height;
-    
-    // --- Game State ---
-    let player, obstacles, score, highScore, speed, gravity, gameOver, jumpSound, coinSound;
-    let lastObstacleTime = 0;
-    let groundY = H - 40;
-    let coins = [];
-    let lastCoinTime = 0;
-    
-    // --- Pixel Colors ---
-    const PIXEL_ORANGE = '#ffb347';
-    const PIXEL_BROWN = '#7c4700';
-    const PIXEL_GREEN = '#7fff7f';
-    const PIXEL_GRAY = '#444';
-    const PIXEL_YELLOW = '#ffe066';
-    
-    // --- Utility Functions ---
-    function randInt(a, b) {
-      return Math.floor(Math.random() * (b - a + 1)) + a;
-    }
-    
-    // --- Game Initialization ---
-    function resetGame() {
-      player = {
-        x: 60,
-        y: groundY - 32,
-        w: 32,
-        h: 32,
-        vy: 0,
-        jump: false,
-        alive: true
-      };
-      obstacles = [];
-      coins = [];
-      score = 0;
-      speed = 5;
-      gravity = 1.1;
-      gameOver = false;
-      lastObstacleTime = 0;
-      lastCoinTime = 0;
-      document.getElementById('restartBtn').style.display = 'none';
-    }
-    
-    // --- Drawing Functions ---
-    function drawGround() {
-      ctx.fillStyle = PIXEL_BROWN;
-      ctx.fillRect(0, groundY, W, 40);
-      // Pixel grass
-      for (let i = 0; i < W; i += 8) {
-        ctx.fillStyle = PIXEL_GREEN;
-        ctx.fillRect(i, groundY, 6, 6);
-      }
-    }
-    function drawPlayer() {
-      // Pixel fox: body
-      ctx.fillStyle = PIXEL_ORANGE;
-      ctx.fillRect(player.x, player.y, player.w, player.h);
-      // Ear
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(player.x + 22, player.y + 4, 6, 6);
-      // Eye
-      ctx.fillStyle = '#222';
-      ctx.fillRect(player.x + 20, player.y + 14, 4, 4);
-      // Tail
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(player.x - 8, player.y + 18, 10, 6);
-    }
-    function drawObstacles() {
-      obstacles.forEach(o => {
-        ctx.fillStyle = PIXEL_GRAY;
-        ctx.fillRect(o.x, o.y, o.w, o.h);
-        // Add a "rock" highlight
-        ctx.fillStyle = '#aaa';
-        ctx.fillRect(o.x + 4, o.y + o.h - 8, o.w - 8, 6);
-      });
-    }
-    function drawCoins() {
-      coins.forEach(c => {
-        ctx.fillStyle = PIXEL_YELLOW;
-        ctx.beginPath();
-        ctx.arc(c.x + c.r, c.y + c.r, c.r, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      });
-    }
-    function drawScore() {
-      ctx.font = '18px "Press Start 2P", Arial';
-      ctx.fillStyle = '#23272e';
-      ctx.fillText('Score: ' + score, 16, 32);
-      ctx.fillText('High: ' + (highScore || 0), 16, 60);
-    }
-    function drawGameOver() {
-      ctx.font = '32px "Press Start 2P", Arial';
-      ctx.fillStyle = '#ff4c4c';
-      ctx.textAlign = 'center';
-      ctx.fillText('GAME OVER', W/2, H/2 - 20);
-      ctx.font = '18px "Press Start 2P", Arial';
-      ctx.fillStyle = '#fff';
-      ctx.fillText('Score: ' + score, W/2, H/2 + 20);
-      ctx.fillText('Tap or Press R to Restart', W/2, H/2 + 60);
-      ctx.textAlign = 'left';
-    }
-    
-    // --- Game Loop ---
-    function update(ts) {
-      if (!gameOver) {
-        // Physics
-        player.vy += gravity;
-        player.y += player.vy;
-        if (player.y > groundY - player.h) {
-          player.y = groundY - player.h;
-          player.vy = 0;
-          player.jump = false;
-        }
-        // Obstacles
-        if (!lastObstacleTime || ts - lastObstacleTime > randInt(900, 1600)) {
-          // Randomize obstacle height
-          let h = randInt(28, 44);
-          obstacles.push({ x: W, y: groundY - h, w: randInt(18, 32), h });
-          lastObstacleTime = ts;
-        }
-        obstacles.forEach(o => o.x -= speed);
-        obstacles = obstacles.filter(o => o.x + o.w > 0);
-        // Coins
-        if (!lastCoinTime || ts - lastCoinTime > randInt(1200, 2200)) {
-          coins.push({ x: W, y: groundY - randInt(60, 120), r: 10 });
-          lastCoinTime = ts;
-        }
-        coins.forEach(c => c.x -= speed);
-        coins = coins.filter(c => c.x + c.r > 0);
-        // Collision: obstacles
-        obstacles.forEach(o => {
-          if (
-            player.x < o.x + o.w &&
-            player.x + player.w > o.x &&
-            player.y < o.y + o.h &&
-            player.y + player.h > o.y
-          ) {
-            gameOver = true;
-            player.alive = false;
-            if (!highScore || score > highScore) {
-              highScore = score;
-              localStorage.setItem('pixeldash_highscore', highScore);
-            }
-            document.getElementById('restartBtn').style.display = 'block';
-          }
-        });
-        // Collision: coins
-        coins.forEach((c, i) => {
-          if (
-            player.x < c.x + c.r * 2 &&
-            player.x + player.w > c.x &&
-            player.y < c.y + c.r * 2 &&
-            player.y + player.h > c.y
-          ) {
-            score += 10;
-            coins.splice(i, 1);
-          }
-        });
-        // Score & speed
-        score++;
-        if (score % 400 === 0) speed += 0.7;
-      }
-      // --- Drawing ---
-      ctx.clearRect(0, 0, W, H);
-      drawGround();
-      drawPlayer();
-      drawObstacles();
-      drawCoins();
-      drawScore();
-      if (gameOver) drawGameOver();
-      requestAnimationFrame(update);
-    }
-    
-    // --- Controls ---
-    function jump() {
-      if (!player.jump && player.alive) {
-        player.vy = -17;
-        player.jump = true;
-      }
-    }
-    document.addEventListener('keydown', e => {
-      if (e.code === 'Space') jump();
-      if (gameOver && (e.code === 'KeyR' || e.code === 'Space')) {
-        resetGame();
-      }
-    });
-    canvas.addEventListener('touchstart', e => {
-      e.preventDefault();
-      if (!gameOver) jump();
-      else resetGame();
-    }, { passive: false });
-    canvas.addEventListener('mousedown', e => {
-      if (!gameOver) jump();
-      else resetGame();
-    });
-    document.getElementById('restartBtn').onclick = resetGame;
-    
-    // --- Start Game ---
-    highScore = +localStorage.getItem('pixeldash_highscore') || 0;
-    resetGame();
-    requestAnimationFrame(update);
-  </script>
+
+  <script src="game.js"></script>
+
 </body>
 </html>
